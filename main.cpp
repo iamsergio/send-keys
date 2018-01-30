@@ -62,14 +62,17 @@ public:
         if (line.startsWith("#interval")) {
             m_key_interval_ms = splitted[1].toInt();
             m_line_interval_ms = splitted[2].toInt();
+            qDebug() << "Setted interval to " << m_key_interval_ms << m_line_interval_ms;
             return;
         } else if (line.startsWith("#sleep")) {
             std::this_thread::sleep_for(std::chrono::milliseconds(splitted[1].toInt()));
             return;
-        } else if (line.startsWith("#popup ")) {
-            line.remove("#popup ");
+        } else if (line.startsWith("#popup")) {
+            line.remove("#popup");
+            line = line.trimmed();
             line.replace("\\n", "\n");
-            emit popupTextChange(line);
+            if (!line.isEmpty())
+                emit popupTextChange(line);
             return;
         } else if (line.startsWith("#resize_popup")) {
             emit popupSizeChange(splitted[1].toInt(), splitted[2].toInt());
