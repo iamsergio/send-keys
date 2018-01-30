@@ -71,8 +71,12 @@ public:
             line.remove("#popup");
             line = line.trimmed();
             line.replace("\\n", "\n");
-            if (!line.isEmpty())
-                emit popupTextChange(line);
+            emit popupTextChange(line);
+            return;
+        } else if (line.startsWith("#popup_append")) {
+            line.remove("#popup_append ");
+            line.replace("\\n", "\n");
+            emit popupAppendText(line);
             return;
         } else if (line.startsWith("#resize_popup")) {
             emit popupSizeChange(splitted[1].toInt(), splitted[2].toInt());
@@ -120,6 +124,7 @@ public Q_SLOTS:
 
 signals:
     void popupTextChange(const QString &text);
+    void popupAppendText(const QString &text);
     void popupSizeChange(int width, int height);
     void scriptEnded();
 
@@ -129,7 +134,6 @@ private:
     int m_line_interval_ms = 100;
     const QString m_filename;
 };
-
 
 
 int main(int argv, char**argc)
@@ -156,6 +160,11 @@ int main(int argv, char**argc)
 
     auto keySender = new KeySender(app.arguments().at(1));
     QObject::connect(keySender, &KeySender::popupTextChange, label, &QLabel::setText);
+
+    QObject::connect(keySender, &KeySender::popupAppendText, label, [label] (const QString &text) {
+        label->setText(label->text() + "\n" + text);
+    });
+
     QObject::connect(keySender, &KeySender::popupSizeChange, w, [w] (int width, int height) {
         w->setFixedSize(width, height);
         QScreen *screen = qApp->primaryScreen();
