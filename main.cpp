@@ -26,6 +26,7 @@
 #include <QFile>
 #include <QMessageBox>
 #include <QVBoxLayout>
+#include <QGroupBox>
 #include <QThread>
 #include <QScreen>
 
@@ -66,7 +67,9 @@ public:
             std::this_thread::sleep_for(std::chrono::milliseconds(splitted[1].toInt()));
             return;
         } else if (line.startsWith("#popup ")) {
-            emit popupTextChange(line.remove("#popup "));
+            line.remove("#popup ");
+            line.replace("\\n", "\n");
+            emit popupTextChange(line);
             return;
         } else if (line.startsWith("#resize_popup")) {
             emit popupSizeChange(splitted[1].toInt(), splitted[2].toInt());
@@ -94,6 +97,16 @@ public Q_SLOTS:
         QTextStream in(&file);
         while (!in.atEnd()) {
             const QString line = in.readLine();
+
+            if (line.startsWith("#quit")) {
+                qDebug() << "Quitting";
+                qApp->quit();
+                return true;
+            } else if (line.startsWith("#pause_forever")) {
+                qDebug() << "Pausing forever";
+                return true;
+            }
+
             send_line(line);
         }
 
@@ -126,17 +139,22 @@ int main(int argv, char**argc)
     }
 
     auto w = new QWidget(nullptr, Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+    auto groupBox = new QGroupBox(w);
     auto layout = new QVBoxLayout(w);
+    layout->addWidget(groupBox);
+    auto layout2 = new QVBoxLayout(groupBox);
     auto label = new QLabel(w);
-    label->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-    layout->addWidget(label);
-    layout->setMargin(40);
+    label->setWordWrap(true);
+    label->setAlignment(Qt::AlignTop | Qt::AlignJustify /*Qt::AlignLeft*/);
+    layout2->addWidget(label);
+    layout->setMargin(15);
+    layout2->setMargin(15);
     w->show();
 
     auto keySender = new KeySender(app.arguments().at(1));
     QObject::connect(keySender, &KeySender::popupTextChange, label, &QLabel::setText);
     QObject::connect(keySender, &KeySender::popupSizeChange, w, [w] (int width, int height) {
-        w->resize(width, height);
+        w->setFixedSize(width, height);
         QScreen *screen = qApp->primaryScreen();
         w->move(screen->geometry().bottomRight() - QPoint(w->width(), w->height()));
     });
