@@ -20,12 +20,136 @@
   without including the source code for Qt in the source distribution.
 */
 
+#include <QLabel>
+#include <QApplication>
+#include <QDebug>
+#include <QFile>
+#include <QMessageBox>
+#include <QVBoxLayout>
+#include <QThread>
+#include <QScreen>
 
-#include <QCoreApplication>
+#include <thread>
+
+
+class KeySender : public QObject
+{
+    Q_OBJECT
+public:
+    KeySender(const QString &filename)
+        : QObject()
+        , m_filename(filename)
+    {
+    }
+
+    void send_char(QString c)
+    {
+        if (c == " ") {
+            c = R"("\[space]")";
+        }
+
+        system(QString("xvkbd -xsendevent -text %1").arg(c).toLatin1());
+    }
+
+    void send_line(QString line)
+    {
+        if (line.trimmed().isEmpty() || line.startsWith("##"))
+            return;
+
+        QStringList splitted = line.split(" ");
+
+        if (line.startsWith("#interval")) {
+            m_key_interval_ms = splitted[1].toInt();
+            m_line_interval_ms = splitted[2].toInt();
+            return;
+        } else if (line.startsWith("#sleep")) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(splitted[1].toInt()));
+            return;
+        } else if (line.startsWith("#popup ")) {
+            emit popupTextChange(line.remove("#popup "));
+            return;
+        } else if (line.startsWith("#resize_popup")) {
+            emit popupSizeChange(splitted[1].toInt(), splitted[2].toInt());
+            return;
+        }
+
+        for (QChar c : line) {
+            send_char(c);
+            std::this_thread::sleep_for(std::chrono::milliseconds(m_key_interval_ms));
+        }
+        send_char(R"("\r")");
+        std::this_thread::sleep_for(std::chrono::milliseconds(m_line_interval_ms));
+    }
+
+public Q_SLOTS:
+    bool process_file()
+    {
+        qDebug() << "Processing script!";
+        QFile file(m_filename);
+        if (!file.open(QIODevice::ReadOnly)) {
+            qWarning() << "Failed to open " << m_filename;
+            return false;
+        }
+
+        QTextStream in(&file);
+        while (!in.atEnd()) {
+            const QString line = in.readLine();
+            send_line(line);
+        }
+
+        file.close();
+        emit scriptEnded();
+        return true;
+    }
+
+signals:
+    void popupTextChange(const QString &text);
+    void popupSizeChange(int width, int height);
+    void scriptEnded();
+
+private:
+
+    int m_key_interval_ms = 40;
+    int m_line_interval_ms = 100;
+    const QString m_filename;
+};
+
+
 
 int main(int argv, char**argc)
 {
-    QCoreApplication app(argv, argc);
+    QApplication app(argv, argc);
+
+    if (app.arguments().size() != 2) {
+        qWarning() << QString("Usage: %1 <filename>").arg(app.arguments().constFirst());
+        return -1;
+    }
+
+    auto w = new QWidget(nullptr, Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+    auto layout = new QVBoxLayout(w);
+    auto label = new QLabel(w);
+    label->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    layout->addWidget(label);
+    layout->setMargin(40);
+    w->show();
+
+    auto keySender = new KeySender(app.arguments().at(1));
+    QObject::connect(keySender, &KeySender::popupTextChange, label, &QLabel::setText);
+    QObject::connect(keySender, &KeySender::popupSizeChange, w, [w] (int width, int height) {
+        w->resize(width, height);
+        QScreen *screen = qApp->primaryScreen();
+        w->move(screen->geometry().bottomRight() - QPoint(w->width(), w->height()));
+    });
+
+    QObject::connect(keySender, &KeySender::scriptEnded, qApp, &QApplication::quit);
+
+    QThread t;
+    keySender->moveToThread(&t);
+    t.connect(&t, &QThread::started, keySender, &KeySender::process_file);
+    t.start();
+
 
     return app.exec();
 }
+
+#include "main.moc"

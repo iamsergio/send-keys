@@ -1,2 +1,6 @@
 *.o
 moc.*
+*.pro.user
+send-keys
+Makefile
+.qmake.stash
