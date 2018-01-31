@@ -123,7 +123,7 @@ public Q_SLOTS:
                 const QString filename = line.split(" ")[1];
                 qDebug() << "Started recording to" << filename;
                 QFile::remove(filename);
-                m_ffmpegProcess->start("ffmpeg", {"-f", "x11grab", "-s", "wxga", "-r", "30", "-i", ":0.0", "-qscale", "0", filename });
+                m_ffmpegProcess->start("ffmpeg", {"-f", "x11grab", "-s", "1920x1080", "-r", "30", "-i", ":0.0", "-qscale", "0", filename });
             } else {
                 send_line(line);
             }
