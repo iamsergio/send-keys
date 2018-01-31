@@ -67,16 +67,16 @@ public:
         } else if (line.startsWith("#sleep")) {
             std::this_thread::sleep_for(std::chrono::milliseconds(splitted[1].toInt()));
             return;
+        } else if (line.startsWith("#popup_append")) {
+            line.remove("#popup_append ");
+            line.replace("\\n", "\n");
+            emit popupAppendText(line);
+            return;
         } else if (line.startsWith("#popup")) {
             line.remove("#popup");
             line = line.trimmed();
             line.replace("\\n", "\n");
             emit popupTextChange(line);
-            return;
-        } else if (line.startsWith("#popup_append")) {
-            line.remove("#popup_append ");
-            line.replace("\\n", "\n");
-            emit popupAppendText(line);
             return;
         } else if (line.startsWith("#resize_popup")) {
             emit popupSizeChange(splitted[1].toInt(), splitted[2].toInt());
