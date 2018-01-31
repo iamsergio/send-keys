@@ -154,8 +154,8 @@ int main(int argv, char**argc)
     label->setWordWrap(true);
     label->setAlignment(Qt::AlignTop | Qt::AlignJustify /*Qt::AlignLeft*/);
     layout2->addWidget(label);
-    layout->setMargin(15);
-    layout2->setMargin(15);
+    layout->setMargin(10);
+    layout2->setMargin(10);
     w->show();
 
     auto keySender = new KeySender(app.arguments().at(1));
