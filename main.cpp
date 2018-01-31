@@ -29,6 +29,7 @@
 #include <QGroupBox>
 #include <QThread>
 #include <QScreen>
+#include <QProcess>
 
 #include <thread>
 
@@ -40,7 +41,9 @@ public:
     KeySender(const QString &filename)
         : QObject()
         , m_filename(filename)
+        , m_ffmpegProcess(new QProcess(this))
     {
+        connect(m_ffmpegProcess, &QProcess::errorOccurred, this, &KeySender::recordingError);
     }
 
     void send_char(QString c)
@@ -106,15 +109,24 @@ public Q_SLOTS:
             const QString line = in.readLine();
 
             if (line.startsWith("#quit")) {
+
+                if (m_ffmpegProcess->isOpen())
+                    m_ffmpegProcess->close();
+
                 qDebug() << "Quitting";
                 qApp->quit();
                 return true;
             } else if (line.startsWith("#pause_forever")) {
                 qDebug() << "Pausing forever";
                 return true;
+            } else if (line.startsWith("#record")) {
+                const QString filename = line.split(" ")[1];
+                qDebug() << "Started recording to" << filename;
+                QFile::remove(filename);
+                m_ffmpegProcess->start("ffmpeg", {"-f", "x11grab", "-s", "wxga", "-r", "30", "-i", ":0.0", "-qscale", "0", filename });
+            } else {
+                send_line(line);
             }
-
-            send_line(line);
         }
 
         file.close();
@@ -126,6 +138,7 @@ signals:
     void popupTextChange(const QString &text);
     void popupAppendText(const QString &text);
     void popupSizeChange(int width, int height);
+    void recordingError();
     void scriptEnded();
 
 private:
@@ -133,6 +146,7 @@ private:
     int m_key_interval_ms = 40;
     int m_line_interval_ms = 100;
     const QString m_filename;
+    QProcess *const m_ffmpegProcess;
 };
 
 
@@ -172,6 +186,11 @@ int main(int argv, char**argc)
     });
 
     QObject::connect(keySender, &KeySender::scriptEnded, qApp, &QApplication::quit);
+
+    QObject::connect(keySender, &KeySender::recordingError, [] {
+        qDebug() << "Recording error, quitting!";
+        qApp->quit();
+    });
 
     QThread t;
     keySender->moveToThread(&t);

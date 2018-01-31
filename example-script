@@ -1,0 +1,4 @@
+echo Recording to /tmp/test.mpg !
+#record /tmp/test.mpg
+#sleep 5000
+echo bye
